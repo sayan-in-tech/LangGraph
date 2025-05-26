@@ -102,7 +102,7 @@ if __name__ == "__main__":
     print("(Type 'quit' to exit.)")
 
     try:
-        asyncio.run(graph.invoke(init_state()))
+        asyncio.run(graph.ainvoke(init_state()))
     except KeyboardInterrupt:
         print("\n[INFO] Exiting gracefully...")
     except Exception as e:
