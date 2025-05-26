@@ -1,8 +1,13 @@
 import asyncio
+from typing import TypedDict, List, Union
 from langgraph.graph import StateGraph, END
 from langchain_core.runnables import Runnable
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langchain_openai import ChatOpenAI
+
+# Define the structure of the state
+class GraphState(TypedDict):
+    history: List[BaseMessage]
 
 # Set up LM Studio-compatible OpenAI client
 llm = ChatOpenAI(
@@ -34,11 +39,11 @@ Reminder: Never skip the follow-up question. This is your final line in every me
 )
 
 # Initial state with system message
-def init_state():
+def init_state() -> GraphState:
     return {"history": [SYSTEM_PROMPT]}
 
 # Step 1: Get user input
-def get_user_input(state):
+def get_user_input(state: GraphState) -> Union[str, GraphState]:
     user_text = input("\nYou: ").strip()
     if user_text.lower() == "quit":
         return END
@@ -46,14 +51,14 @@ def get_user_input(state):
     return state
 
 # Step 2: Generate assistant reply
-async def generate_reply(state):
+async def generate_reply(state: GraphState) -> GraphState:
     response = await llm.ainvoke(state["history"])
     print(f"\nCareer Strategist: {response.content}")
     state["history"].append(AIMessage(content=response.content))
     return state
 
-# Build LangGraph
-builder = StateGraph()
+# Build LangGraph with state schema
+builder = StateGraph(GraphState)  # <-- FIXED: schema added
 
 builder.add_node("get_input", get_user_input)
 builder.add_node("respond", Runnable(generate_reply))
