@@ -1,7 +1,7 @@
 import asyncio
 from typing import TypedDict, List, Union
 from langgraph.graph import StateGraph, END
-from langchain_core.runnables import Runnable
+from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langchain_openai import ChatOpenAI
 
@@ -61,7 +61,7 @@ async def generate_reply(state: GraphState) -> GraphState:
 builder = StateGraph(GraphState)  # <-- FIXED: schema added
 
 builder.add_node("get_input", get_user_input)
-builder.add_node("respond", Runnable(generate_reply))
+builder.add_node("respond", RunnableLambda(generate_reply))
 
 builder.set_entry_point("get_input")
 builder.add_edge("get_input", "respond")
