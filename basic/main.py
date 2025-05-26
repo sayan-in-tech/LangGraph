@@ -58,7 +58,7 @@ async def generate_reply(state: GraphState) -> GraphState:
     return state
 
 # Build LangGraph with state schema
-builder = StateGraph(GraphState)  # <-- FIXED: schema added
+builder = StateGraph(GraphState)
 
 builder.add_node("get_input", get_user_input)
 builder.add_node("respond", RunnableLambda(generate_reply))
@@ -67,8 +67,7 @@ builder.set_entry_point("get_input")
 builder.add_edge("get_input", "respond")
 builder.add_edge("respond", "get_input")
 
-builder.set_finish_point(END)
-
+# Do NOT call builder.set_finish_point(END) – it's incorrect
 graph = builder.compile()
 
 # Run the graph (loop)
