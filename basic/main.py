@@ -27,7 +27,7 @@ class Spinner:
         while self.busy:
             self.write(f"\r{self.message} {next(self.spinner)}")
             time.sleep(self.delay)
-        self.write("\r\033[K")
+        self.write("\r\033[K")  # Clear the line
 
     def __enter__(self):
         self.busy = True
@@ -99,19 +99,35 @@ def get_user_input(state: GraphState) -> Union[str, GraphState]:
         print(f"[ERROR] Error while getting user input: {e}")
         return state
 
-# Step 2: Generate AI reply with streaming + spinner
+# Step 2: Generate AI reply with streaming + spinner correctly separated
 async def generate_reply(state: GraphState) -> GraphState:
     try:
         collected = ""
 
-        with Spinner("Thinking..."):
-            async for chunk in llm.astream(state["history"]):
-                if hasattr(chunk, "content") and chunk.content:
-                    print(chunk.content, end="", flush=True)
-                    collected += chunk.content
+        # Start streaming iterator
+        stream = llm.astream(state["history"])
 
-        print()  # Newline after assistant response
+        # Show spinner while waiting for first chunk
+        with Spinner("Thinking..."):
+            first_chunk = await stream.__anext__()
+
+        # Print first chunk after spinner stops
+        if hasattr(first_chunk, "content") and first_chunk.content:
+            print(first_chunk.content, end="", flush=True)
+            collected += first_chunk.content
+
+        # Print remaining chunks normally
+        async for chunk in stream:
+            if hasattr(chunk, "content") and chunk.content:
+                print(chunk.content, end="", flush=True)
+                collected += chunk.content
+
+        print()  # Newline after all chunks printed
         state["history"].append(AIMessage(content=collected))
+        return state
+
+    except StopAsyncIteration:
+        # No content returned
         return state
     except Exception as e:
         print(f"\n[ERROR] Failed to generate reply: {e}")
