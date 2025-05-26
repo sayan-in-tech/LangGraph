@@ -10,11 +10,15 @@ class GraphState(TypedDict):
     history: List[BaseMessage]
 
 # Set up LM Studio-compatible OpenAI client
-llm = ChatOpenAI(
-    base_url="http://127.0.0.1:1234/v1",
-    api_key="lm-studio",  # LM Studio ignores the key but requires it
-    model="hermes-3-llama-3.2-3b",
-)
+try:
+    llm = ChatOpenAI(
+        base_url="http://127.0.0.1:1234/v1",
+        api_key="lm-studio",  # LM Studio ignores the key but requires it
+        model="hermes-3-llama-3.2-3b",
+    )
+except Exception as e:
+    print(f"[ERROR] Failed to initialize ChatOpenAI: {e}")
+    exit(1)
 
 # System prompt (hardcoded)
 SYSTEM_PROMPT = SystemMessage(
@@ -40,38 +44,66 @@ Reminder: Never skip the follow-up question. This is your final line in every me
 
 # Initial state with system message
 def init_state() -> GraphState:
-    return {"history": [SYSTEM_PROMPT]}
+    try:
+        return {"history": [SYSTEM_PROMPT]}
+    except Exception as e:
+        print(f"[ERROR] Failed to initialize state: {e}")
+        return {"history": []}
 
 # Step 1: Get user input
 def get_user_input(state: GraphState) -> Union[str, GraphState]:
-    user_text = input("\nYou: ").strip()
-    if user_text.lower() == "quit":
-        return END
-    state["history"].append(HumanMessage(content=user_text))
-    return state
+    try:
+        user_text = input("\nYou: ").strip()
+        if not user_text:
+            print("[WARN] Empty input ignored.")
+            return state
+        if user_text.lower() == "quit":
+            return END
+        state["history"].append(HumanMessage(content=user_text))
+        return state
+    except Exception as e:
+        print(f"[ERROR] Error while getting user input: {e}")
+        return state
 
 # Step 2: Generate assistant reply
 async def generate_reply(state: GraphState) -> GraphState:
-    response = await llm.ainvoke(state["history"])
-    print(f"\nCareer Strategist: {response.content}")
-    state["history"].append(AIMessage(content=response.content))
-    return state
+    try:
+        response = await llm.ainvoke(state["history"])
+        if not response or not hasattr(response, "content"):
+            print("[ERROR] No response content from model.")
+            return state
+
+        print(f"\nCareer Strategist: {response.content}")
+        state["history"].append(AIMessage(content=response.content))
+        return state
+    except Exception as e:
+        print(f"[ERROR] Failed to generate reply: {e}")
+        return state
 
 # Build LangGraph with state schema
-builder = StateGraph(GraphState)
+try:
+    builder = StateGraph(GraphState)
 
-builder.add_node("get_input", get_user_input)
-builder.add_node("respond", RunnableLambda(generate_reply))
+    builder.add_node("get_input", get_user_input)
+    builder.add_node("respond", RunnableLambda(generate_reply))
 
-builder.set_entry_point("get_input")
-builder.add_edge("get_input", "respond")
-builder.add_edge("respond", "get_input")
+    builder.set_entry_point("get_input")
+    builder.add_edge("get_input", "respond")
+    builder.add_edge("respond", "get_input")
 
-# Do NOT call builder.set_finish_point(END) – it's incorrect
-graph = builder.compile()
+    graph = builder.compile()
+except Exception as e:
+    print(f"[ERROR] Failed to build LangGraph: {e}")
+    exit(1)
 
 # Run the graph (loop)
 if __name__ == "__main__":
     print("Career Strategist: Hello! I'm here to help you find the right job opportunities.")
     print("(Type 'quit' to exit.)")
-    asyncio.run(graph.invoke(init_state()))
+
+    try:
+        asyncio.run(graph.invoke(init_state()))
+    except KeyboardInterrupt:
+        print("\n[INFO] Exiting gracefully...")
+    except Exception as e:
+        print(f"[ERROR] Unexpected error during execution: {e}")
