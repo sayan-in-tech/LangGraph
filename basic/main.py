@@ -1,27 +1,64 @@
 import asyncio
+import itertools
+import sys
+import threading
+import time
 from typing import TypedDict, List, Union
+
 from langgraph.graph import StateGraph, END
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langchain_openai import ChatOpenAI
 
-# Define the structure of the state
+# Spinner for thinking animation
+class Spinner:
+    def __init__(self, message="Processing..."):
+        self.spinner = itertools.cycle(["-", "/", "|", "\\"])
+        self.busy = False
+        self.delay = 0.1
+        self.message = message
+        self.thread = None
+
+    def write(self, text):
+        sys.stdout.write(text)
+        sys.stdout.flush()
+
+    def _spin(self):
+        while self.busy:
+            self.write(f"\r{self.message} {next(self.spinner)}")
+            time.sleep(self.delay)
+        self.write("\r\033[K")
+
+    def __enter__(self):
+        self.busy = True
+        self.thread = threading.Thread(target=self._spin)
+        self.thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.busy = False
+        time.sleep(self.delay)
+        if self.thread:
+            self.thread.join()
+        self.write("\r")
+
+# Define the state structure
 class GraphState(TypedDict):
     history: List[BaseMessage]
 
-# Set up LM Studio-compatible OpenAI client
+# Initialize LM Studio-compatible LLM client
 try:
     llm = ChatOpenAI(
         base_url="http://127.0.0.1:1234/v1",
-        api_key="lm-studio",  # LM Studio ignores the key but requires it
+        api_key="lm-studio",  # LM Studio requires a key but doesn't validate it
         model="hermes-3-llama-3.2-3b",
-        streaming=True,
+        streaming=True
     )
 except Exception as e:
     print(f"[ERROR] Failed to initialize ChatOpenAI: {e}")
     exit(1)
 
-# System prompt (hardcoded)
+# System prompt
 SYSTEM_PROMPT = SystemMessage(
     content="""You are to ask one question at the very end!
 
@@ -43,13 +80,9 @@ End with an open-ended, engaging follow-up question, no matter what
 Reminder: Never skip the follow-up question. This is your final line in every message, every time."""
 )
 
-# Initial state with system message
+# Initialize conversation state
 def init_state() -> GraphState:
-    try:
-        return {"history": [SYSTEM_PROMPT]}
-    except Exception as e:
-        print(f"[ERROR] Failed to initialize state: {e}")
-        return {"history": []}
+    return {"history": [SYSTEM_PROMPT]}
 
 # Step 1: Get user input
 def get_user_input(state: GraphState) -> Union[str, GraphState]:
@@ -66,28 +99,27 @@ def get_user_input(state: GraphState) -> Union[str, GraphState]:
         print(f"[ERROR] Error while getting user input: {e}")
         return state
 
-# Step 2: Generate assistant reply
+# Step 2: Generate AI reply with streaming + spinner
 async def generate_reply(state: GraphState) -> GraphState:
     try:
-        print("\nCareer Strategist: [thinking...]", end="", flush=True)
-        content = ""
+        collected = ""
 
-        async for chunk in llm.astream(state["history"]):
-            if hasattr(chunk, "content") and chunk.content:
-                print(chunk.content, end="", flush=True)
-                content += chunk.content
+        with Spinner("Thinking..."):
+            async for chunk in llm.astream(state["history"]):
+                if hasattr(chunk, "content") and chunk.content:
+                    print(chunk.content, end="", flush=True)
+                    collected += chunk.content
 
-        print("")  # newline after streaming ends
-        state["history"].append(AIMessage(content=content))
+        print()  # Newline after assistant response
+        state["history"].append(AIMessage(content=collected))
         return state
     except Exception as e:
         print(f"\n[ERROR] Failed to generate reply: {e}")
         return state
 
-# Build LangGraph with state schema
+# Build LangGraph state machine
 try:
     builder = StateGraph(GraphState)
-
     builder.add_node("get_input", get_user_input)
     builder.add_node("respond", RunnableLambda(generate_reply))
 
@@ -100,7 +132,7 @@ except Exception as e:
     print(f"[ERROR] Failed to build LangGraph: {e}")
     exit(1)
 
-# Run the graph (loop)
+# Main chat loop
 if __name__ == "__main__":
     print("Career Strategist: Hello! I'm here to help you find the right job opportunities.")
     print("(Type 'quit' to exit.)")
