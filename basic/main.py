@@ -15,6 +15,7 @@ try:
         base_url="http://127.0.0.1:1234/v1",
         api_key="lm-studio",  # LM Studio ignores the key but requires it
         model="hermes-3-llama-3.2-3b",
+        streaming=True,
     )
 except Exception as e:
     print(f"[ERROR] Failed to initialize ChatOpenAI: {e}")
