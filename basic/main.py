@@ -69,16 +69,19 @@ def get_user_input(state: GraphState) -> Union[str, GraphState]:
 # Step 2: Generate assistant reply
 async def generate_reply(state: GraphState) -> GraphState:
     try:
-        response = await llm.ainvoke(state["history"])
-        if not response or not hasattr(response, "content"):
-            print("[ERROR] No response content from model.")
-            return state
+        print("\nCareer Strategist: [thinking...]", end="", flush=True)
+        content = ""
 
-        print(f"\nCareer Strategist: {response.content}")
-        state["history"].append(AIMessage(content=response.content))
+        async for chunk in llm.astream(state["history"]):
+            if hasattr(chunk, "content") and chunk.content:
+                print(chunk.content, end="", flush=True)
+                content += chunk.content
+
+        print("")  # newline after streaming ends
+        state["history"].append(AIMessage(content=content))
         return state
     except Exception as e:
-        print(f"[ERROR] Failed to generate reply: {e}")
+        print(f"\n[ERROR] Failed to generate reply: {e}")
         return state
 
 # Build LangGraph with state schema
