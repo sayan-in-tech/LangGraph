@@ -5,16 +5,16 @@ from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_openai import ChatOpenAI
 
-class GraphState(TypedDict):
-    history: List[BaseMessage]
-    continue_: bool
-
 llm = ChatOpenAI(
     base_url="http://127.0.0.1:1234/v1",
     api_key="lm-studio",
     model="hermes-3-llama-3.2-3b",
     streaming=True,
 )
+
+class GraphState(TypedDict):
+    history: List[BaseMessage]
+    continue_: bool
 
 async def chat_step(state: GraphState) -> GraphState:
     user_input = input("You: ").strip()
