@@ -1,6 +1,6 @@
 import asyncio
 from typing import TypedDict, List
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, END
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_openai import ChatOpenAI
@@ -36,7 +36,7 @@ async def chat_step(state: GraphState) -> GraphState:
 builder = StateGraph(GraphState)
 builder.add_node("chat", RunnableLambda(chat_step))
 builder.set_entry_point("chat")
-builder.add_conditional_edges("chat", lambda state: "chat" if state["continue_"] else None)
+builder.add_conditional_edges("chat", lambda state: "chat" if state["continue_"] else END)
 graph = builder.compile()
 
 if __name__ == "__main__":
