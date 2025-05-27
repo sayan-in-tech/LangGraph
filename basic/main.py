@@ -19,7 +19,7 @@ llm = ChatOpenAI(
 async def single_node(state: GraphState) -> Union[str, GraphState]:
     text = input("You: ").strip()
     if text.lower() == "quit":
-        return 0
+        return END
     state["history"].append(HumanMessage(content=text))
 
     reply = ""
