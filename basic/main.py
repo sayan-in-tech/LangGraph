@@ -39,5 +39,4 @@ builder.set_entry_point("chat")
 builder.add_conditional_edges("chat", lambda state: "chat" if state["continue_"] else END)
 graph = builder.compile()
 
-if __name__ == "__main__":
-    asyncio.run(graph.ainvoke({"history": [], "continue_": True}))
+asyncio.run(graph.ainvoke({"history": [], "continue_": True}))
