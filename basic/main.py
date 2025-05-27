@@ -16,33 +16,26 @@ llm = ChatOpenAI(
     streaming=True,
 )
 
-def init_state() -> GraphState:
-    return {"history": []}
-
-def get_input(state: GraphState) -> Union[str, GraphState]:
+async def single_node(state: GraphState) -> Union[str, GraphState]:
     text = input("You: ").strip()
     if text.lower() == "quit":
         return END
     state["history"].append(HumanMessage(content=text))
-    return state
 
-async def respond(state: GraphState) -> GraphState:
-    response = ""
+    reply = ""
     async for chunk in llm.astream(state["history"]):
         if chunk.content:
             print(chunk.content, end="", flush=True)
-            response += chunk.content
+            reply += chunk.content
     print()
-    state["history"].append(AIMessage(content=response))
+    state["history"].append(AIMessage(content=reply))
     return state
 
 builder = StateGraph(GraphState)
-builder.add_node("get_input", get_input)
-builder.add_node("respond", RunnableLambda(respond))
-builder.set_entry_point("get_input")
-builder.add_edge("get_input", "respond")
-builder.add_edge("respond", "get_input")
+builder.add_node("chat", RunnableLambda(single_node))
+builder.set_entry_point("chat")
+builder.add_edge("chat", "chat")
 graph = builder.compile()
 
 if __name__ == "__main__":
-    asyncio.run(graph.ainvoke(init_state()))
+    asyncio.run(graph.ainvoke({"history": []}))
