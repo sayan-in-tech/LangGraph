@@ -10,7 +10,7 @@ llm = ChatOpenAI(
     base_url="http://127.0.0.1:1234/v1",
     api_key="lm-studio",
     model="hermes-3-llama-3.2-3b",
-    streaming=False  # Set to False unless you're handling streaming responses
+    streaming=True  # Set to False unless you're handling streaming responses
 )
 
 # Define the conversation state
